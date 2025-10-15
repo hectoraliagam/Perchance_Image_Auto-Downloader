@@ -1,4 +1,5 @@
 import os
+from downloader import connect_to_chrome, download_images_from_page
 
 BASE_PATH = r"C:\\Users\\Hector\\Documents\\The Fearless Storyteller\\images"
 
@@ -72,6 +73,10 @@ def main():
     print(f"\n📍 Ruta final donde se guardarán las imágenes:")
     print(nueva_carpeta_hija)
 
+    print("\nConectando a Chrome abierto...")
+    driver = connect_to_chrome()
+    download_images_from_page(driver, nueva_carpeta_hija)
 
 if __name__ == "__main__":
     main()
+#resultImgEl
