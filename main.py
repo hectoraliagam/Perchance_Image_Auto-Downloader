@@ -70,7 +70,6 @@ def main():
     print("\nConectando a Chrome abierto...")
     driver = connect_to_chrome()
     if driver:
-        print("\n🖼️ Iniciando la generación y descarga de imágenes...")
         download_images(driver, nueva_carpeta_hija, max_images=32)
 
 if __name__ == "__main__":
