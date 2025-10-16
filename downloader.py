@@ -69,21 +69,28 @@ def detect_new_images(driver, known_urls):
 def download_images(driver, save_path, max_images=32, poll_interval=2, patience_limit=30):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
+    existing_files = [
+        f for f in os.listdir(save_path)
+        if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))
+    ]
+    existing_files.sort()
+    existing_count = len(existing_files)
     downloaded = set()
     idle_cycles = 0
     last_count = 0
-    print("🖼️  Iniciando generación y descarga de imágenes...")
+    print(f"🖼️  Iniciando generación y descarga de imágenes...")
     if not click_generate_button(driver):
         print("❌ No se pudo iniciar la generación. Abortando.")
         return
     print("⌛ Esperando generación de imágenes...")
-    while len(downloaded) < max_images:
+    objetivo_total = existing_count + max_images
+    while len(downloaded) + existing_count < objetivo_total:
         new_imgs = detect_new_images(driver, downloaded)
         if new_imgs:
             idle_cycles = 0
             for img_src in new_imgs:
                 downloaded.add(img_src)
-                index = len(downloaded)
+                index = existing_count + len(downloaded)
                 filename = os.path.join(save_path, f"{index:02}.jpeg")
                 try:
                     if img_src.startswith("data:image/jpeg;base64,"):
@@ -95,7 +102,7 @@ def download_images(driver, save_path, max_images=32, poll_interval=2, patience_
                         print(f"⚠️ Fuente no reconocida para imagen {index:02}.")
                 except Exception as e:
                     print(f"❌ Error al guardar imagen {index:02}: {e}")
-                if len(downloaded) >= max_images:
+                if existing_count + len(downloaded) >= objetivo_total:
                     break
         else:
             idle_cycles += 1
@@ -107,4 +114,5 @@ def download_images(driver, save_path, max_images=32, poll_interval=2, patience_
         if len(downloaded) != last_count:
             last_count = len(downloaded)
         time.sleep(poll_interval)
-    print(f"\n🎉 Descarga completada: {len(downloaded)} imágenes guardadas en '{save_path}'.")
+    total_final = existing_count + len(downloaded)
+    print(f"\n🎉 Descarga completada: {total_final} imágenes guardadas en '{save_path}'.")

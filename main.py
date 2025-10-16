@@ -32,16 +32,18 @@ def obtener_ultima_carpeta_madre():
 def obtener_siguiente_madre(actual):
     return f"{int(actual) + 1:04d}"
 
+def contar_imagenes_en(path):
+    return len([
+        img for img in os.listdir(path)
+        if img.lower().endswith(('.jpg', '.png', '.jpeg', '.webp'))
+    ])
+
 def obtener_subcarpetas_completas(path):
     completas = 0
     for carpeta in sorted(os.listdir(path)):
         carpeta_path = os.path.join(path, carpeta)
         if os.path.isdir(carpeta_path):
-            imagenes = [
-                img for img in os.listdir(carpeta_path)
-                if img.lower().endswith(('.jpg', '.png', '.jpeg', '.webp'))
-            ]
-            if len(imagenes) >= IMAGENES_POR_SUBCARPETA:
+            if contar_imagenes_en(carpeta_path) >= IMAGENES_POR_SUBCARPETA:
                 completas += 1
     return completas
 
@@ -50,14 +52,12 @@ def obtener_siguiente_hija(path):
     for carpeta in carpetas:
         carpeta_path = os.path.join(path, carpeta)
         if os.path.isdir(carpeta_path):
-            imagenes = [
-                img for img in os.listdir(carpeta_path)
-                if img.lower().endswith(('.jpg', '.png', '.jpeg', '.webp'))
-            ]
-            if len(imagenes) < IMAGENES_POR_SUBCARPETA:
-                return carpeta
+            cantidad = contar_imagenes_en(carpeta_path)
+            if cantidad < IMAGENES_POR_SUBCARPETA:
+                print(f"\n🔁 Subcarpeta {carpeta} incompleta ({cantidad}/32). Se completará ahora.")
+                return carpeta, cantidad
     siguiente = len(carpetas) + 1
-    return f"{siguiente:02d}"
+    return f"{siguiente:02d}", 0
 
 def main():
     print("🔄 Buscando carpeta madre activa...")
@@ -79,24 +79,28 @@ def main():
         os.makedirs(ruta_madre, exist_ok=True)
         print(f"\n🆕 Creada carpeta madre inicial: {carpeta_madre}")
     listar_carpetas_y_archivos(ruta_madre)
+    print("\nConectando a Chrome abierto...")
+    driver = connect_to_chrome()
+    if not driver:
+        print("❌ No se pudo conectar a Chrome. Abortando.")
+        return
     while True:
         subcarpetas_completas = obtener_subcarpetas_completas(ruta_madre)
         if subcarpetas_completas >= SUBCARPETAS_TOTALES:
             print(f"\n🎯 Carpeta madre {carpeta_madre} completada (16 subcarpetas llenas).")
             break
-        siguiente_hija = obtener_siguiente_hija(ruta_madre)
+        siguiente_hija, cantidad_actual = obtener_siguiente_hija(ruta_madre)
         ruta_hija = os.path.join(ruta_madre, siguiente_hija)
         os.makedirs(ruta_hija, exist_ok=True)
+        faltantes = IMAGENES_POR_SUBCARPETA - cantidad_actual
+        if faltantes <= 0:
+            print(f"✅ Subcarpeta {siguiente_hija} ya está completa.")
+            continue
         print(f"\n🆕 Preparando subcarpeta hija {siguiente_hija}...")
         print(f"📍 Ruta final: {ruta_hija}")
-        print("\nConectando a Chrome abierto...")
-        driver = connect_to_chrome()
-        if driver:
-            download_images(driver, ruta_hija, max_images=IMAGENES_POR_SUBCARPETA)
-            print(f"✅ Subcarpeta {siguiente_hija} completada correctamente.")
-        else:
-            print("❌ No se pudo conectar a Chrome. Abortando ciclo.")
-            break
+        print(f"🎯 Faltan {faltantes} imágenes para completar esta subcarpeta.\n")
+        download_images(driver, ruta_hija, max_images=faltantes)
+        print(f"✅ Subcarpeta {siguiente_hija} completada correctamente.")
     print("\n🏁 Proceso de generación terminado por completo.")
 
 if __name__ == "__main__":
