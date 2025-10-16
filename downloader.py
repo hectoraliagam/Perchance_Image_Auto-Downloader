@@ -1,138 +1,77 @@
 import os
 import time
-import requests
+import base64
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-
 
 def connect_to_chrome():
-    chrome_options = Options()
-    chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
-    driver = webdriver.Chrome(options=chrome_options)
-    print("\n✅ Conectado a la sesión abierta de Chrome.")
-    print("🌐 URL actual:", driver.current_url)
-    print("🧭 Título actual:", driver.title)
+    options = Options()
+    options.debugger_address = "127.0.0.1:9222"
+    driver = webdriver.Chrome(options=options)
+    print("✅ Conectado correctamente a Chrome.")
     return driver
 
-
-def get_generator_iframe(driver):
-    """
-    Encuentra automáticamente el iframe donde se ejecuta el generador de imágenes.
-    """
-    iframes = driver.find_elements(By.TAG_NAME, "iframe")
-    print(f"🔎 Detectando iframes en la página ({len(iframes)} encontrados)...")
-
-    image_sources = driver.execute_script("""
-        const app = document.querySelector('perchance-app');
-        if (!app) return [];
-        const root = app.shadowRoot;
-        if (!root) return [];
-        const generator = root.querySelector('perchance-ai-text-to-image-generator');
-        if (!generator) return [];
-        const shadow = generator.shadowRoot;
-        if (!shadow) return [];
-        const imgs = shadow.querySelectorAll('img');
-        return Array.from(imgs).map(img => img.src);
-    """)
-
-    if image_sources and len(image_sources) > 0:
-        print(f"🖼️ Se encontraron {len(image_sources)} imágenes para descargar.")
-        for i, src in enumerate(image_sources, start=1):
-            print(f"   {i:02d} → {src}")
-    else:
-        print("⚠️ No se encontraron imágenes dentro del shadow root del generador.")
-
-    for idx, iframe in enumerate(iframes):
-        src = iframe.get_attribute("src")
-        if src and "perchance.org/ai-text-to-image-generator" in src:
-            print(f"✅ Iframe correcto detectado: #{idx} ({src})")
-            return iframe
-
-    print("❌ No se encontró el iframe del generador. Asegúrate de estar en la página correcta.")
-    return None
-
-
-def click_generate_if_needed(driver):
-    print("\n🔍 Verificando si hay imágenes generadas...")
-
-    target_iframe = get_generator_iframe(driver)
-    if not target_iframe:
-        return
-
+def get_outer_iframe(driver):
     try:
-        driver.switch_to.frame(target_iframe)
-        print("✅ Cambiado al iframe del generador.")
+        return driver.find_element(By.XPATH, '//*[@id="outputIframeEl"]')
+    except Exception:
+        print("⚠️ No se encontró el iframe externo (outputIframeEl).")
+        return None
 
-        images = driver.find_elements(By.XPATH, '//*[@id="resultImgEl"]')
-
-        if len(images) == 0:
-            print("⚠️ No hay imágenes visibles. Intentando presionar el botón 'Generar'...")
-
-            wait = WebDriverWait(driver, 15)
-            generate_button = wait.until(
-                EC.element_to_be_clickable((By.XPATH, '//*[@id="generateButtonEl"]'))
-            )
-
-            driver.execute_script("arguments[0].scrollIntoView(true);", generate_button)
-            time.sleep(0.8)
-            generate_button.click()
-            print("✅ Botón 'Generar' presionado correctamente.")
-
-            print("⏳ Esperando a que se generen las imágenes...")
-            WebDriverWait(driver, 60).until(
-                EC.presence_of_element_located((By.XPATH, '//*[@id="resultImgEl"]'))
-            )
-            print("🖼️ Imágenes generadas correctamente.")
-
-        else:
-            print(f"🖼️ Ya hay {len(images)} imágenes visibles en la página.")
-
+def detect_new_images(driver, known_urls):
+    new_imgs = []
+    outer_iframe = get_outer_iframe(driver)
+    if not outer_iframe:
+        return []
+    try:
+        driver.switch_to.frame(outer_iframe)
+        containers = driver.find_elements(By.XPATH, '//*[@id="outputAreaEl"]/div')
+        print(f"📦 Detectados {len(containers)} contenedores de imágenes.")
+        for div in containers:
+            try:
+                inner_iframe = div.find_element(By.TAG_NAME, "iframe")
+                if not inner_iframe.is_displayed():
+                    continue
+                driver.switch_to.frame(inner_iframe)
+                img = driver.find_element(By.ID, "resultImgEl")
+                img_src = img.get_attribute("src")
+                if img_src and img_src not in known_urls:
+                    new_imgs.append(img_src)
+            except Exception:
+                pass
+            finally:
+                driver.switch_to.parent_frame()
     except Exception as e:
-        print(f"❌ Error al intentar generar imágenes: {e}")
-
+        print(f"⚠️ Error general al detectar imágenes: {e}")
     finally:
         driver.switch_to.default_content()
+    return new_imgs
 
-
-def download_images_from_page(driver, save_path, num_images=32):
+def download_images(driver, save_path, max_images=32, poll_interval=2):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
-
-    click_generate_if_needed(driver)
-
-    print("\n🔍 Buscando imágenes dentro del iframe...")
-    target_iframe = get_generator_iframe(driver)
-    if not target_iframe:
-        print("❌ No se puede descargar porque no se detectó el iframe.")
-        return
-
-    driver.switch_to.frame(target_iframe)
-    time.sleep(2)
-
-    images = driver.find_elements(By.XPATH, '/html/body/div[1]/main/div[2]/img')
-    print(f"🖼️ Se encontraron {len(images)} imágenes para descargar.")
-
-    if not images:
-        print("⚠️ No se encontraron imágenes para descargar.")
-        driver.switch_to.default_content()
-        return
-
-    for idx, img in enumerate(images[:num_images], start=1):
-        src = img.get_attribute("src")
-        if src:
-            filename = os.path.join(save_path, f"{idx:02}.jpeg")
-            try:
-                r = requests.get(src, timeout=15)
-                with open(filename, "wb") as f:
-                    f.write(r.content)
-                print(f"✅ Imagen {idx:02} descargada correctamente.")
-            except Exception as e:
-                print(f"❌ Error al descargar imagen {idx:02}: {e}")
+    downloaded = set()
+    print("🖼️ Esperando imágenes generadas dinámicamente...")
+    while len(downloaded) < max_images:
+        new_imgs = detect_new_images(driver, downloaded)
+        if new_imgs:
+            for img_src in new_imgs:
+                downloaded.add(img_src)
+                filename = os.path.join(save_path, f"{len(downloaded):02}.jpeg")
+                try:
+                    if img_src.startswith("data:image/jpeg;base64,"):
+                        img_data = base64.b64decode(img_src.split(",")[1])
+                        with open(filename, "wb") as f:
+                            f.write(img_data)
+                        print(f"✅ Imagen {len(downloaded):02} descargada correctamente.")
+                    else:
+                        print(f"⚠️ Fuente no reconocida: {img_src[:60]}...")
+                except Exception as e:
+                    print(f"❌ Error al guardar imagen {len(downloaded):02}: {e}")
+                if len(downloaded) >= max_images:
+                    break
         else:
-            print(f"⚠️ Imagen {idx:02} no tiene atributo 'src'.")
-
-    driver.switch_to.default_content()
+            print("⏳ Aún no hay nuevas imágenes, esperando...")
+        time.sleep(poll_interval)
     print("\n🎉 Descarga completada con éxito.")

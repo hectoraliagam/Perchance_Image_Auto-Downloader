@@ -1,5 +1,5 @@
 import os
-from downloader import connect_to_chrome, download_images_from_page
+from downloader import connect_to_chrome, download_images
 
 BASE_PATH = r"C:\\Users\\Hector\\Documents\\The Fearless Storyteller\\images"
 
@@ -9,7 +9,6 @@ def listar_carpetas_y_archivos(path):
     if not carpetas:
         print("\n   (Vacío)")
         return
-
     for carpeta in carpetas:
         carpeta_path = os.path.join(path, carpeta)
         if os.path.isdir(carpeta_path):
@@ -48,10 +47,8 @@ def main():
                 print("❌ Debe ser un número entre 1 y 9999.")
         except ValueError:
             print("❌ Entrada inválida. Intente nuevamente.")
-
     carpeta_madre = f"{numero:04d}"
     ruta_madre = os.path.join(BASE_PATH, carpeta_madre)
-
     if not os.path.exists(ruta_madre):
         os.makedirs(ruta_madre)
         print(f"\n✅ Carpeta madre creada: {ruta_madre}")
@@ -59,7 +56,6 @@ def main():
         print(f"\n⚠️  La carpeta madre '{carpeta_madre}' ya existe en:")
         print(ruta_madre)
         listar_carpetas_y_archivos(ruta_madre)
-
     carpeta_vacia = buscar_carpeta_vacia(ruta_madre)
     if carpeta_vacia:
         nueva_carpeta_hija = os.path.join(ruta_madre, carpeta_vacia)
@@ -69,14 +65,13 @@ def main():
         nueva_carpeta_hija = os.path.join(ruta_madre, siguiente)
         os.makedirs(nueva_carpeta_hija, exist_ok=True)
         print(f"\n🆕 Se creó automáticamente la carpeta hija: {siguiente}")
-
     print(f"\n📍 Ruta final donde se guardarán las imágenes:")
     print(nueva_carpeta_hija)
-
     print("\nConectando a Chrome abierto...")
     driver = connect_to_chrome()
-    download_images_from_page(driver, nueva_carpeta_hija)
+    if driver:
+        print("\n🖼️ Iniciando la generación y descarga de imágenes...")
+        download_images(driver, nueva_carpeta_hija, max_images=32)
 
 if __name__ == "__main__":
     main()
-#resultImgEl
