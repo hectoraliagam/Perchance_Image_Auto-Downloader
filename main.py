@@ -2,6 +2,8 @@ import os
 from downloader import connect_to_chrome, download_images
 
 BASE_PATH = r"C:\\Users\\Hector\\Documents\\The Fearless Storyteller\\images"
+SUBCARPETAS_TOTALES = 16
+IMAGENES_POR_SUBCARPETA = 32
 
 def listar_carpetas_y_archivos(path):
     print("\n📂 Carpetas existentes dentro de la madre:")
@@ -12,65 +14,90 @@ def listar_carpetas_y_archivos(path):
     for carpeta in carpetas:
         carpeta_path = os.path.join(path, carpeta)
         if os.path.isdir(carpeta_path):
-            imagenes = [img for img in sorted(os.listdir(carpeta_path))
-                        if img.lower().endswith(('.jpg', '.png', '.jpeg', '.webp'))]
+            imagenes = [
+                img for img in sorted(os.listdir(carpeta_path))
+                if img.lower().endswith(('.jpg', '.png', '.jpeg', '.webp'))
+            ]
             if imagenes:
-                nombres = " - ".join(imagenes)
-                print(f"\n N° {carpeta} ({len(imagenes)} imágenes):")
-                print(f" [ {nombres} ]")
+                print(f"\n N° {carpeta} ({len(imagenes)} imágenes)")
             else:
                 print(f"\n N° {carpeta} (vacía)")
 
-def obtener_siguiente_numero(path):
-    existentes = [int(c) for c in os.listdir(path) if c.isdigit()]
-    if not existentes:
-        return "01"
-    siguiente = max(existentes) + 1
-    return f"{siguiente:02d}"
+def obtener_ultima_carpeta_madre():
+    carpetas = [c for c in os.listdir(BASE_PATH) if c.isdigit()]
+    if not carpetas:
+        return None
+    return f"{max(int(c) for c in carpetas):04d}"
 
-def buscar_carpeta_vacia(path):
+def obtener_siguiente_madre(actual):
+    return f"{int(actual) + 1:04d}"
+
+def obtener_subcarpetas_completas(path):
+    completas = 0
     for carpeta in sorted(os.listdir(path)):
         carpeta_path = os.path.join(path, carpeta)
         if os.path.isdir(carpeta_path):
-            if not any(fname.lower().endswith(('.jpg', '.png', '.jpeg', '.webp'))
-                       for fname in os.listdir(carpeta_path)):
+            imagenes = [
+                img for img in os.listdir(carpeta_path)
+                if img.lower().endswith(('.jpg', '.png', '.jpeg', '.webp'))
+            ]
+            if len(imagenes) >= IMAGENES_POR_SUBCARPETA:
+                completas += 1
+    return completas
+
+def obtener_siguiente_hija(path):
+    carpetas = sorted([c for c in os.listdir(path) if c.isdigit()])
+    for carpeta in carpetas:
+        carpeta_path = os.path.join(path, carpeta)
+        if os.path.isdir(carpeta_path):
+            imagenes = [
+                img for img in os.listdir(carpeta_path)
+                if img.lower().endswith(('.jpg', '.png', '.jpeg', '.webp'))
+            ]
+            if len(imagenes) < IMAGENES_POR_SUBCARPETA:
                 return carpeta
-    return None
+    siguiente = len(carpetas) + 1
+    return f"{siguiente:02d}"
 
 def main():
+    print("🔄 Buscando carpeta madre activa...")
+    ultima_madre = obtener_ultima_carpeta_madre()
+    if ultima_madre:
+        ruta_madre = os.path.join(BASE_PATH, ultima_madre)
+        subcarpetas_completas = obtener_subcarpetas_completas(ruta_madre)
+        if subcarpetas_completas >= SUBCARPETAS_TOTALES:
+            carpeta_madre = obtener_siguiente_madre(ultima_madre)
+            ruta_madre = os.path.join(BASE_PATH, carpeta_madre)
+            os.makedirs(ruta_madre, exist_ok=True)
+            print(f"\n🆕 Nueva carpeta madre creada automáticamente: {carpeta_madre}")
+        else:
+            carpeta_madre = ultima_madre
+            print(f"\n📁 Continuando con la carpeta madre existente: {carpeta_madre}")
+    else:
+        carpeta_madre = "0001"
+        ruta_madre = os.path.join(BASE_PATH, carpeta_madre)
+        os.makedirs(ruta_madre, exist_ok=True)
+        print(f"\n🆕 Creada carpeta madre inicial: {carpeta_madre}")
+    listar_carpetas_y_archivos(ruta_madre)
     while True:
-        try:
-            numero = int(input("Ingrese el número de carpeta madre (1-9999): "))
-            if 1 <= numero <= 9999:
-                break
-            else:
-                print("❌ Debe ser un número entre 1 y 9999.")
-        except ValueError:
-            print("❌ Entrada inválida. Intente nuevamente.")
-    carpeta_madre = f"{numero:04d}"
-    ruta_madre = os.path.join(BASE_PATH, carpeta_madre)
-    if not os.path.exists(ruta_madre):
-        os.makedirs(ruta_madre)
-        print(f"\n✅ Carpeta madre creada: {ruta_madre}")
-    else:
-        print(f"\n⚠️  La carpeta madre '{carpeta_madre}' ya existe en:")
-        print(ruta_madre)
-        listar_carpetas_y_archivos(ruta_madre)
-    carpeta_vacia = buscar_carpeta_vacia(ruta_madre)
-    if carpeta_vacia:
-        nueva_carpeta_hija = os.path.join(ruta_madre, carpeta_vacia)
-        print(f"\n📁 Se usará la carpeta vacía existente: {carpeta_vacia}")
-    else:
-        siguiente = obtener_siguiente_numero(ruta_madre)
-        nueva_carpeta_hija = os.path.join(ruta_madre, siguiente)
-        os.makedirs(nueva_carpeta_hija, exist_ok=True)
-        print(f"\n🆕 Se creó automáticamente la carpeta hija: {siguiente}")
-    print(f"\n📍 Ruta final donde se guardarán las imágenes:")
-    print(nueva_carpeta_hija)
-    print("\nConectando a Chrome abierto...")
-    driver = connect_to_chrome()
-    if driver:
-        download_images(driver, nueva_carpeta_hija, max_images=32)
+        subcarpetas_completas = obtener_subcarpetas_completas(ruta_madre)
+        if subcarpetas_completas >= SUBCARPETAS_TOTALES:
+            print(f"\n🎯 Carpeta madre {carpeta_madre} completada (16 subcarpetas llenas).")
+            break
+        siguiente_hija = obtener_siguiente_hija(ruta_madre)
+        ruta_hija = os.path.join(ruta_madre, siguiente_hija)
+        os.makedirs(ruta_hija, exist_ok=True)
+        print(f"\n🆕 Preparando subcarpeta hija {siguiente_hija}...")
+        print(f"📍 Ruta final: {ruta_hija}")
+        print("\nConectando a Chrome abierto...")
+        driver = connect_to_chrome()
+        if driver:
+            download_images(driver, ruta_hija, max_images=IMAGENES_POR_SUBCARPETA)
+            print(f"✅ Subcarpeta {siguiente_hija} completada correctamente.")
+        else:
+            print("❌ No se pudo conectar a Chrome. Abortando ciclo.")
+            break
+    print("\n🏁 Proceso de generación terminado por completo.")
 
 if __name__ == "__main__":
     main()
