@@ -1,0 +1,15 @@
+{
+  "base_path": "C:/Users/Hector/Documents/The Fearless Storyteller/images",
+  "total_subfolders": 16,
+  "images_per_subfolder": 32,
+  "valid_extensions": [".jpg", ".jpeg", ".png", ".webp"],
+
+  "debugger_address": "127.0.0.1:9222",
+  "generate_button_xpath": "//*[@id='generateButtonEl']",
+  "outer_iframe_xpath": "//*[@id='outputIframeEl']",
+  "output_area_xpath": "//*[@id='outputAreaEl']/div",
+  "result_img_id": "resultImgEl",
+
+  "poll_interval": 2,
+  "patience_limit": 30
+}
