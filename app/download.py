@@ -1,5 +1,6 @@
+# app/download.py
+
 import os
-import time
 import base64
 from typing import Set
 
@@ -7,9 +8,10 @@ from selenium.webdriver.remote.webdriver import WebDriver
 
 from app.config import Config
 from app.logger import setup_logger
-from app.helpers import click_generate_button, detect_new_images
+from app.helpers import human_delay, click_generate_button, detect_new_images
 
 logger = setup_logger("Download")
+
 
 def save_base64_image(img_src: str, filename: str) -> bool:
     try:
@@ -21,7 +23,8 @@ def save_base64_image(img_src: str, filename: str) -> bool:
         with open(filename, "wb") as f:
             f.write(img_data)
         
-        logger.debug(f"Imagen guardada en {filename}")
+        human_delay(0.2, 0.6)
+        logger.debug(f"🖼️ Imagen guardada en {filename}")
         return True
     except Exception as e:
         logger.error(f"❌ Error al guardar imagen {filename}: {e}")
@@ -42,6 +45,7 @@ def download_images(driver: WebDriver, save_path: str, max_images: int = 32, cfg
     last_count = 0
     
     logger.info("🖼️ Iniciando generación y descarga de imágenes...")
+    human_delay(1.5, 3.0)
     
     if not click_generate_button(driver, cfg):
         logger.error("❌ No se pudo iniciar la generación. Abortando.")
@@ -51,6 +55,7 @@ def download_images(driver: WebDriver, save_path: str, max_images: int = 32, cfg
     logger.info(f"⌛ Esperando generación de imágenes... Objetivo: {objetivo_total} imágenes")
     
     while existing_count + len(downloaded) < objetivo_total:
+        human_delay(1.0, 1.8)
         new_imgs = detect_new_images(driver, downloaded, cfg)
         
         if new_imgs:
@@ -63,10 +68,12 @@ def download_images(driver: WebDriver, save_path: str, max_images: int = 32, cfg
                 if img_src.startswith("data:image/jpeg;base64,"):
                     if save_base64_image(img_src, filename):
                         logger.info(f"✅ Imagen {index:02} descargada correctamente.")
+                        human_delay(1.2, 3.5)
                 else:
                     logger.warning(f"⚠️ Fuente no reconocida para imagen {index:02}.")
                 
                 logger.info(f"📊 Progreso: {existing_count + len(downloaded)}/{objetivo_total} imágenes descargadas en {os.path.basename(save_path)}")
+                human_delay(0.8, 1.5)
                 
                 if existing_count + len(downloaded) >= objetivo_total:
                     break
@@ -74,6 +81,8 @@ def download_images(driver: WebDriver, save_path: str, max_images: int = 32, cfg
         else:
             idle_cycles += 1
             idle_time = idle_cycles * cfg.poll_interval
+            human_delay(0.6, 1.4)
+            
             if idle_cycles % 5 == 0:
                 logger.info(f"⌛ Esperando nuevas imágenes... ({idle_time}s sin cambios)")
                 
@@ -81,6 +90,7 @@ def download_images(driver: WebDriver, save_path: str, max_images: int = 32, cfg
                 logger.warning("⚠️ 60s sin nuevas imágenes. Reintentando pulsar 'Generate'...")
                 if click_generate_button(driver, cfg):
                     logger.info("🔄️ Reintento exitoso: botón 'Generate' pulsado de nuevo.")
+                    human_delay(2.0, 4.0)
                     idle_cycles = 0
                 else:
                     logger.error("❌ Reintento fallido al pulsar 'Generate'.")
@@ -92,7 +102,7 @@ def download_images(driver: WebDriver, save_path: str, max_images: int = 32, cfg
         if len(downloaded) != last_count:
             last_count = len(downloaded)
         
-        time.sleep(cfg.poll_interval)
+        human_delay(cfg.poll_interval * 0.8, cfg.poll_interval * 1.2)
     
     total_final = existing_count + len(downloaded)
     logger.info(f"🎉 Descarga completada: {total_final} imágenes guardadas en '{save_path}'.")

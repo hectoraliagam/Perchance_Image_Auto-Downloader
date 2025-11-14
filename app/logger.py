@@ -1,3 +1,5 @@
+# app/logger.py
+
 import logging
 
 def setup_logger(name: str = __name__) -> logging.Logger:
