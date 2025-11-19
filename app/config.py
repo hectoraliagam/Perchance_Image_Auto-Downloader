@@ -6,7 +6,7 @@ from typing import Tuple
 @dataclass(frozen=True)
 class Config:
     # --- Paths and folders ---
-    base_path: str = r"C:\Users\Hector\Documents\The Fearless Storyteller\images"
+    base_path: str = ""
     total_subfolders: int = 16
     images_per_subfolder: int = 32
     valid_extensions: Tuple[str, ...] = (".jpg", ".jpeg", ".png", ".webp")
