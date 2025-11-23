@@ -6,9 +6,8 @@ from **Perchance AI Text‑to‑Image Generator**\
 and a manually opened Chrome session in **debug mode**.
 
 ⚠️ **Importante:**\
-El sitio puede mostrar **CAPTCHA** después de muchas descargas. Tu
-programa no los resuelve, así que el proceso puede detenerse
-temporalmente.
+El sitio puede mostrar **CAPTCHA** después de muchas descargas. El programa actual no los resuelve, así que el proceso puede detenerse
+temporalmente. Reiniciar Chrome Debug Mode en ese caso.
 
 ------------------------------------------------------------------------
 
